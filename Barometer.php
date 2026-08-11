@@ -1,60 +1,43 @@
 <?php
 
-namespace ScrapyardIO\Waveforms\Environment;
+namespace Waveforms\Environment;
 
-use Fabricate\Contracts\Sensors\Enums\PressureUnit;
-use Fabricate\Contracts\Sensors\Interfaces\Barometer as BarometerCircuit;
-use Fabricate\Contracts\Sensors\SensorException;
-use Fabricate\NutsAndBolts\MagicAliases\Circuit;
-use Fabricate\Sensors\Sensor;
+use GeneralPurposeIO\Core\MagicAliases\Circuit;
+use Waveforms\Contracts\Environment\MeasuresBarometricPressure;
+use Waveforms\Contracts\Sensors\Enums\PressureUnit;
+use Waveforms\Contracts\Sensors\SensorException;
+use Waveforms\PhysicalDevices\AbstractSensor;
 
 /**
  * @property-read float $pressure
  */
-class Barometer extends Sensor
+class Barometer extends AbstractSensor
 {
-    public function __construct(BarometerCircuit $circuit)
-    {
-        parent::__construct($circuit);
-    }
+    public function __construct(
+        protected MeasuresBarometricPressure $sensor,
+    ) {}
 
-    /**
-     * @throws SensorException
-     */
     public function __get(string $name): float
     {
         return match ($name) {
-            'pressure' => $this->getPressure(),
+            'pressure' => $this->pressure(),
             default => throw SensorException::invalidProperty($name, static::class),
         };
     }
 
-    /**
-     * @throws SensorException
-     */
-    public function getPressure(PressureUnit|string $unit = PressureUnit::HECTOPASCAL): float
+    public function pressure(PressureUnit $unit = PressureUnit::HECTOPASCAL): float
     {
-        if (is_string($unit)) {
-            $unit = PressureUnit::tryFrom($unit) ?? PressureUnit::HECTOPASCAL;
-        }
-
-        /** @var BarometerCircuit $circuit */
-        $circuit = $this->circuit;
-
-        return $circuit->measurePressure($unit);
+        return $this->sensor->pressure($unit);
     }
 
-    /**
-     * @throws SensorException
-     */
     public static function circuit(string $driver): static
     {
-        $circuit = Circuit::driver($driver);
+        $circuit = Circuit::profile($driver);
 
-        if ($circuit instanceof BarometerCircuit) {
+        if ($circuit instanceof MeasuresBarometricPressure) {
             return new static($circuit);
         }
 
-        throw new SensorException("Circuit [{$driver}] is not a Barometric Pressure Sensor.");
+        throw new SensorException("Circuit [{$driver}] does not Measure Barometric Pressure.");
     }
 }

@@ -1,60 +1,43 @@
 <?php
 
-namespace ScrapyardIO\Waveforms\Environment;
+namespace Waveforms\Environment;
 
-use Fabricate\Contracts\Sensors\Enums\TemperatureUnit;
-use Fabricate\Contracts\Sensors\Interfaces\Thermometer as ThermometerCircuit;
-use Fabricate\Contracts\Sensors\SensorException;
-use Fabricate\NutsAndBolts\MagicAliases\Circuit;
-use Fabricate\Sensors\Sensor;
+use GeneralPurposeIO\Core\MagicAliases\Circuit;
+use Waveforms\Contracts\Environment\MeasuresTemperature;
+use Waveforms\Contracts\Sensors\Enums\TemperatureUnit;
+use Waveforms\Contracts\Sensors\SensorException;
+use Waveforms\PhysicalDevices\AbstractSensor;
 
 /**
  * @property-read float $temperature
  */
-class Thermometer extends Sensor
+class Thermometer extends AbstractSensor
 {
-    public function __construct(ThermometerCircuit $circuit)
-    {
-        parent::__construct($circuit);
-    }
+    public function __construct(
+        protected MeasuresTemperature $sensor,
+    ) {}
 
-    /**
-     * @throws SensorException
-     */
     public function __get(string $name): float
     {
         return match ($name) {
-            'temperature' => $this->getTemperature(),
+            'temperature' => $this->temperature(),
             default => throw SensorException::invalidProperty($name, static::class),
         };
     }
 
-    /**
-     * @throws SensorException
-     */
-    public function getTemperature(TemperatureUnit|string $unit = TemperatureUnit::CELSIUS): float
+    public function temperature(TemperatureUnit $unit = TemperatureUnit::CELSIUS): float
     {
-        if (is_string($unit)) {
-            $unit = TemperatureUnit::tryFrom($unit) ?? TemperatureUnit::CELSIUS;
-        }
-
-        /** @var ThermometerCircuit $circuit */
-        $circuit = $this->circuit;
-
-        return $circuit->measureTemp($unit);
+        return $this->sensor->temperature($unit);
     }
 
-    /**
-     * @throws SensorException
-     */
     public static function circuit(string $driver): static
     {
-        $circuit = Circuit::driver($driver);
+        $circuit = Circuit::profile($driver);
 
-        if ($circuit instanceof ThermometerCircuit) {
+        if ($circuit instanceof MeasuresTemperature) {
             return new static($circuit);
         }
 
-        throw new SensorException("Circuit [{$driver}] is not a Thermometer.");
+        throw new SensorException("Circuit [{$driver}] does not Measure Temperature.");
     }
 }

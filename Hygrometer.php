@@ -1,61 +1,44 @@
 <?php
 
-namespace ScrapyardIO\Waveforms\Environment;
+namespace Waveforms\Environment;
 
-use Fabricate\Contracts\Sensors\Enums\HumidityUnit;
-use Fabricate\Contracts\Sensors\Interfaces\Hygrometer as HygrometerCircuit;
-use Fabricate\Contracts\Sensors\SensorException;
-use Fabricate\NutsAndBolts\MagicAliases\Circuit;
-use Fabricate\Sensors\Sensor;
+use GeneralPurposeIO\Core\MagicAliases\Circuit;
+use Waveforms\Contracts\Environment\MeasuresRelativeHumidity;
+use Waveforms\Contracts\Sensors\Enums\HumidityUnit;
+use Waveforms\Contracts\Sensors\SensorException;
+use Waveforms\PhysicalDevices\AbstractSensor;
 
 /**
  * @property-read float $humidity
  * @property-read float $relative_humidity
  */
-class Hygrometer extends Sensor
+class Hygrometer extends AbstractSensor
 {
-    public function __construct(HygrometerCircuit $circuit)
-    {
-        parent::__construct($circuit);
-    }
+    public function __construct(
+        protected MeasuresRelativeHumidity $sensor,
+    ) {}
 
-    /**
-     * @throws SensorException
-     */
     public function __get(string $name): float
     {
         return match ($name) {
-            'humidity', 'relative_humidity' => $this->getHumidity(),
+            'humidity', 'relative_humidity' => $this->humidity(),
             default => throw SensorException::invalidProperty($name, static::class),
         };
     }
 
-    /**
-     * @throws SensorException
-     */
-    public function getHumidity(HumidityUnit|string $unit = HumidityUnit::PERCENT): float
+    public function humidity(HumidityUnit $unit = HumidityUnit::PERCENT): float
     {
-        if (is_string($unit)) {
-            $unit = HumidityUnit::tryFrom($unit) ?? HumidityUnit::PERCENT;
-        }
-
-        /** @var HygrometerCircuit $circuit */
-        $circuit = $this->circuit;
-
-        return $circuit->measureHumidity($unit);
+        return $this->sensor->humidity($unit);
     }
 
-    /**
-     * @throws SensorException
-     */
     public static function circuit(string $driver): static
     {
-        $circuit = Circuit::driver($driver);
+        $circuit = Circuit::profile($driver);
 
-        if ($circuit instanceof HygrometerCircuit) {
+        if ($circuit instanceof MeasuresRelativeHumidity) {
             return new static($circuit);
         }
 
-        throw new SensorException("Circuit [{$driver}] is not a Hygrometer/Relative Humidity Sensor.");
+        throw new SensorException("Circuit [{$driver}] does not Measure Relative Humidity.");
     }
 }
